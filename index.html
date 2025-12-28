@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marwan Hany Elnagar - Professional OmniCalc</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+        .en-font { font-family: 'Poppins', sans-serif; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .btn-sci {
+            background: rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+        .btn-sci:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        .active-tab {
+            background: linear-gradient(135deg, #38bdf8, #2563eb);
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+        }
+        .lcd-display {
+            background: #000;
+            border: 2px solid #334155;
+            font-family: 'monospace';
+            text-shadow: 0 0 10px #38bdf8;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .anim-enter { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- Icons ---
+        const Icons = {
+            Calc: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>,
+            Units: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
+            Currency: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zM12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/></svg>,
+            Science: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        };
+
+        // --- Data ---
+        const unitData = {
+            length: { name: "الطول", base: "m", units: { m: 1, km: 1000, cm: 0.01, mm: 0.001, ft: 0.3048, inch: 0.0254, mile: 1609.34 } },
+            weight: { name: "الوزن", base: "kg", units: { kg: 1, g: 0.001, mg: 0.000001, lb: 0.453592, oz: 0.0283495, ton: 1000 } },
+            area: { name: "المساحة", base: "m2", units: { m2: 1, km2: 1000000, cm2: 0.0001, acre: 4046.86, hectare: 10000 } },
+            speed: { name: "السرعة", base: "m/s", units: { "m/s": 1, "km/h": 0.277778, "mph": 0.44704, "knot": 0.514444 } }
+        };
+
+        const scientificConstants = [
+            { name: 'c', val: 299792458, desc: 'سرعة الضوء (m/s)' },
+            { name: 'G', val: 6.674e-11, desc: 'ثابت الجاذبية' },
+            { name: 'h', val: 6.626e-34, desc: 'ثابت بلانك' },
+            { name: 'NA', val: 6.022e23, desc: 'ثابت أفوجادرو' },
+            { name: 'R', val: 8.314, desc: 'ثابت الغازات' },
+            { name: 'π', val: Math.PI, desc: 'النسبة التقريبية' },
+            { name: 'e', val: Math.E, desc: 'ثابت أويلر' }
+        ];
+
+        const currencyRates = { USD: 1, EGP: 50.8, SAR: 3.75, EUR: 0.92, KWD: 0.31, AED: 3.67, QAR: 3.64 };
+
+        const App = () => {
+            const [lang, setLang] = useState('ar');
+            const [activeSection, setActiveSection] = useState('calc');
+            
+            // Calc State
+            const [expression, setExpression] = useState('');
+            const [sciResult, setSciResult] = useState('0');
+            const [history, setHistory] = useState([]);
+
+            // Unit State
+            const [unitCategory, setUnitCategory] = useState('length');
+            const [unitVal, setUnitVal] = useState(1);
+            const [unitFrom, setUnitFrom] = useState('m');
+            const [unitTo, setUnitTo] = useState('km');
+
+            // Currency State
+            const [currVal, setCurrVal] = useState(1);
+            const [currFrom, setCurrFrom] = useState('USD');
+            const [currTo, setCurrTo] = useState('EGP');
+
+            const t = {
+                ar: { dev: "مروان هاني النجار", calc: "حاسبة", units: "وحدات", curr: "عملات", consts: "ثوابت", res: "النتيجة", hist: "السجل" },
+                en: { dev: "Marwan Hany Elnagar", calc: "Calc", units: "Units", curr: "Currency", consts: "Constants", res: "Result", hist: "History" }
+            }[lang];
+
+            // --- Handlers ---
+            const handleCalc = (val) => {
+                if (val === '=') {
+                    try {
+                        let sanitized = expression
+                            .replace(/×/g, '*')
+                            .replace(/÷/g, '/')
+                            .replace(/π/g, Math.PI)
+                            .replace(/e/g, Math.E)
+                            .replace(/\^/g, '**')
+                            .replace(/√\(/g, 'Math.sqrt(')
+                            .replace(/sin\(/g, 'Math.sin(')
+                            .replace(/cos\(/g, 'Math.cos(')
+                            .replace(/tan\(/g, 'Math.tan(')
+                            .replace(/log\(/g, 'Math.log10(');
+                        
+                        const evalRes = eval(sanitized);
+                        const finalRes = Number.isInteger(evalRes) ? evalRes : evalRes.toFixed(6);
+                        setSciResult(finalRes.toString());
+                        setHistory([expression + ' = ' + finalRes, ...history.slice(0, 4)]);
+                    } catch (e) {
+                        setSciResult('Error');
+                    }
+                } else if (val === 'AC') {
+                    setExpression('');
+                    setSciResult('0');
+                } else if (val === 'DEL') {
+                    setExpression(expression.slice(0, -1));
+                } else {
+                    setExpression(prev => prev + val);
+                }
+            };
+
+            const insertConstant = (c) => {
+                setExpression(prev => prev + c.val.toString());
+                setActiveSection('calc');
+            };
+
+            const convertUnits = () => {
+                const cat = unitData[unitCategory];
+                const fromFactor = cat.units[unitFrom];
+                const toFactor = cat.units[unitTo];
+                return ((unitVal * fromFactor) / toFactor).toLocaleString(undefined, { maximumFractionDigits: 5 });
+            };
+
+            const convertCurrency = () => {
+                const fromRate = currencyRates[currFrom];
+                const toRate = currencyRates[currTo];
+                return ((currVal / fromRate) * toRate).toLocaleString(undefined, { maximumFractionDigits: 2 });
+            };
+
+            const SciButton = ({ label, action, color = "btn-sci" }) => (
+                <button 
+                    onClick={() => action(label)}
+                    className={`p-3 rounded-xl font-bold text-sm sm:text-lg flex items-center justify-center ${color} shadow-sm active:scale-95 transition-all h-12 sm:h-14`}
+                >
+                    {label}
+                </button>
+            );
+
+            return (
+                <div className={`container mx-auto max-w-2xl p-4 min-h-screen flex flex-col justify-center ${lang === 'en' ? 'en-font' : ''}`}>
+                    
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-6 px-2">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tighter text-blue-400 en-font uppercase">MARWAN HANY</h1>
+                            <p className="text-xs opacity-50 font-bold tracking-widest">{t.dev}</p>
+                        </div>
+                        <button 
+                            onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+                            className="px-4 py-2 rounded-xl glass-card hover:bg-white/10 transition text-xs font-bold"
+                        >
+                            {lang === 'ar' ? 'ENGLISH' : 'العربية'}
+                        </button>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="flex gap-2 mb-6 p-1 glass-card rounded-2xl overflow-x-auto no-scrollbar">
+                        {[
+                            { id: 'calc', icon: <Icons.Calc />, label: t.calc },
+                            { id: 'units', icon: <Icons.Units />, label: t.units },
+                            { id: 'curr', icon: <Icons.Currency />, label: t.curr },
+                            { id: 'sci', icon: <Icons.Science />, label: t.consts }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveSection(tab.id)}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all whitespace-nowrap text-sm font-bold ${activeSection === tab.id ? 'active-tab text-white' : 'opacity-40 hover:opacity-100'}`}
+                            >
+                                {tab.icon} {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Main Content Area */}
+                    <div className="glass-card rounded-3xl p-4 sm:p-6 min-h-[520px] anim-enter border-t border-white/20">
+                        
+                        {activeSection === 'calc' && (
+                            <div className="flex flex-col gap-4">
+                                <div className="lcd-display rounded-2xl p-6 text-right mb-2 overflow-hidden">
+                                    <div className="text-sm opacity-50 h-6 en-font mb-1 truncate">{expression || '0'}</div>
+                                    <div className="text-4xl sm:text-5xl font-bold truncate en-font text-blue-400">{sciResult}</div>
+                                </div>
+                                
+                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                    {['sin(', 'cos(', 'tan(', 'log(', '√('].map(f => <SciButton key={f} label={f} action={handleCalc} color="bg-blue-900/40 text-blue-300 text-xs" />)}
+                                    {['(', ')', '^', 'π', '÷'].map(o => <SciButton key={o} label={o} action={handleCalc} color="bg-slate-700/50" />)}
+                                    {[7, 8, 9, '×', 'DEL'].map(n => <SciButton key={n} label={n} action={handleCalc} color={n==='DEL'?'bg-red-500/20 text-red-400':'bg-slate-800/80'} />)}
+                                    {[4, 5, 6, '-', 'AC'].map(n => <SciButton key={n} label={n} action={handleCalc} color={n==='AC'?'bg-orange-500/20 text-orange-400':'bg-slate-800/80'} />)}
+                                    {[1, 2, 3, '+', '='].map(n => <SciButton key={n} label={n} action={handleCalc} color={n==='='?'active-tab row-span-2':'bg-slate-800/80'} />)}
+                                    {['0', '.', 'e'].map(n => <SciButton key={n} label={n} action={handleCalc} color="bg-slate-800/80" />)}
+                                </div>
+
+                                <div className="mt-4 p-4 rounded-xl bg-black/30">
+                                    <h3 className="text-[10px] opacity-40 mb-2 uppercase tracking-widest font-bold">{t.hist}</h3>
+                                    {history.length > 0 ? history.map((h, i) => (
+                                        <div key={i} className="text-xs py-1 opacity-60 border-b border-white/5 en-font">{h}</div>
+                                    )) : <div className="text-xs opacity-20">No history yet</div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSection === 'units' && (
+                            <div className="space-y-6 py-4">
+                                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                    {Object.keys(unitData).map(cat => (
+                                        <button 
+                                            key={cat}
+                                            onClick={() => {
+                                                setUnitCategory(cat);
+                                                setUnitFrom(Object.keys(unitData[cat].units)[0]);
+                                                setUnitTo(Object.keys(unitData[cat].units)[1]);
+                                            }}
+                                            className={`px-4 py-2 rounded-lg text-xs whitespace-nowrap transition ${unitCategory === cat ? 'bg-blue-500' : 'bg-white/5'}`}
+                                        >
+                                            {unitData[cat].name}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="grid gap-4">
+                                    <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                                        <label className="text-xs opacity-40 mb-2 block tracking-widest uppercase">Input Value</label>
+                                        <div className="flex gap-4">
+                                            <input type="number" value={unitVal} onChange={e=>setUnitVal(e.target.value)} className="bg-transparent text-3xl font-bold w-full outline-none en-font" />
+                                            <select value={unitFrom} onChange={e=>setUnitFrom(e.target.value)} className="bg-slate-800 p-2 rounded-lg text-sm en-font">
+                                                {Object.keys(unitData[unitCategory].units).map(u => <option key={u} value={u}>{u}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-center -my-2">
+                                        <button onClick={() => {setUnitFrom(unitTo); setUnitTo(unitFrom)}} className="bg-blue-500 p-2 rounded-full shadow-lg">⇄</button>
+                                    </div>
+
+                                    <div className="bg-blue-500/10 p-6 rounded-2xl border border-blue-500/20 text-center">
+                                        <div className="text-xs opacity-50 mb-2 tracking-widest uppercase">Converted To</div>
+                                        <div className="flex items-center justify-center gap-3">
+                                            <span className="text-4xl font-bold text-blue-400 en-font">{convertUnits()}</span>
+                                            <select value={unitTo} onChange={e=>setUnitTo(e.target.value)} className="bg-slate-800 p-1 rounded-md text-xs en-font">
+                                                {Object.keys(unitData[unitCategory].units).map(u => <option key={u} value={u}>{u}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSection === 'curr' && (
+                            <div className="space-y-6 py-4">
+                                <div className="text-center">
+                                    <h2 className="text-xl font-bold text-blue-400">محول العملات الذكي</h2>
+                                    <p className="text-[10px] opacity-40 mt-1 uppercase">Live Rates Simulation (2025)</p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="bg-black/20 p-5 rounded-3xl">
+                                        <input type="number" value={currVal} onChange={e=>setCurrVal(e.target.value)} className="bg-transparent text-4xl font-bold w-full outline-none text-center en-font" />
+                                        <div className="flex justify-center gap-4 mt-4">
+                                            <select value={currFrom} onChange={e=>setCurrFrom(e.target.value)} className="bg-slate-800 px-4 py-2 rounded-xl text-sm en-font">
+                                                {Object.keys(currencyRates).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                            <span className="text-blue-500 font-bold self-center">TO</span>
+                                            <select value={currTo} onChange={e=>setCurrTo(e.target.value)} className="bg-slate-800 px-4 py-2 rounded-xl text-sm en-font">
+                                                {Object.keys(currencyRates).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="p-8 rounded-3xl bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 text-center shadow-inner">
+                                        <div className="text-5xl font-bold text-blue-400 en-font">{convertCurrency()}</div>
+                                        <div className="text-sm font-bold opacity-60 mt-2 en-font">{currTo}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSection === 'sci' && (
+                            <div className="space-y-3">
+                                <h2 className="text-lg font-bold text-center mb-4 text-blue-400">مكتبة الثوابت الفيزيائية</h2>
+                                <div className="grid gap-2">
+                                    {scientificConstants.map((c, i) => (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => insertConstant(c)}
+                                            className="flex justify-between items-center p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 transition-all border border-transparent hover:border-blue-500/30 group"
+                                        >
+                                            <div className="text-left">
+                                                <div className="text-xl font-bold text-blue-400 en-font">{c.name}</div>
+                                                <div className="text-[10px] opacity-40">{c.desc}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-sm font-bold en-font opacity-80">{c.val.toExponential(3)}</div>
+                                                <div className="text-[10px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 uppercase tracking-tighter">Click to use</div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+
+                    {/* Footer */}
+                    <div className="mt-8 text-center pb-6">
+                        <p className="text-[10px] opacity-20 tracking-[0.4em] uppercase font-bold en-font">
+                            System Architect: <span className="text-blue-500">Marwan Hany Elnagar</span>
+                        </p>
+                        <div className="flex justify-center gap-6 mt-6 opacity-30">
+                            <Icons.Calc />
+                            <Icons.Units />
+                            <Icons.Currency />
+                            <Icons.Science />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
